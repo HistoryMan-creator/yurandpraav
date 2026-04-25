@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Тренажер по Обществознанию</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Для предотвращения pull-to-refresh на мобильных */
+    body { overscroll-behavior-y: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans overflow-hidden h-[100dvh]">
+  
+  <div id="app" class="h-full w-full"></div>
+
+  <script>
+    // --- ДАННЫЕ ИЗ ФАЙЛОВ ---
+    const liabilityData = [
+      { text: "Выговор", category: "Дисциплинарная" },
+      { text: "Увольнение", category: "Дисциплинарная" },
+      { text: "Замечание", category: "Дисциплинарная" },
+      { text: "Возмещение убытков", category: "Гражданско-правовая" },
+      { text: "Компенсация морального вреда", category: "Гражданско-правовая" },
+      { text: "Выплата неустойки", category: "Гражданско-правовая" },
+      { text: "Лишение специального права", category: "Административная" },
+      { text: "Административный штраф", category: "Административная" },
+      { text: "Административный арест (до 30 суток)", category: "Административная" },
+      { text: "Предупреждение", category: "Административная" },
+      { text: "Выдворение за пределы Российской Федерации иностранного гражданина или лица без гражданства", category: "Административная" },
+      { text: "Дисквалификация", category: "Административная" },
+      { text: "Обязательные работы (от 20 до 200 часов)", category: "Административная" },
+      { text: "Административный запрет на посещение мест проведения официальных спортивных соревнований в дни их проведения", category: "Административная" },
+      { text: "Конфискация орудия совершения или предмета административного правонарушения", category: "Административная" },
+      { text: "Уголовный штраф", category: "Уголовная" },
+      { text: "Исправительные работы", category: "Уголовная" },
+      { text: "Принудительные работы", category: "Уголовная" },
+      { text: "Обязательные работы (от 60 до 480 часов)", category: "Уголовная" },
+      { text: "Лишение права занимать определенные должности или заниматься определенной деятельностью", category: "Уголовная" },
+      { text: "Лишение специального, воинского или почетного звания, классного чина и государственных наград", category: "Уголовная" },
+      { text: "Содержание в дисциплинарной воинской части", category: "Уголовная" },
+      { text: "Арест (до 6 месяцев)", category: "Уголовная" },
+      { text: "Ограничение свободы", category: "Уголовная" },
+      { text: "Лишение свободы", category: "Уголовная" },
+      { text: "Смертная казнь (не применяется, действует мораторий)", category: "Уголовная" }
+    ];
+
+    const liabilityCategories = [
+      "Дисциплинарная", 
+      "Гражданско-правовая", 
+      "Административная", 
+      "Уголовная"
+    ];
+
+    const rightsData = [
+      { text: "Право на жизнь.", category: "Личные права" },
+      { text: "Никто не должен подвергаться пыткам, насилию, другому жестокому или унижающему человеческое достоинство обращению или наказанию. Никто не может быть без добровольного согласия подвергнут медицинским, научным или иным опытам.", category: "Личные права" },
+      { text: "Право на свободу и личную неприкосновенность.", category: "Личные права" },
+      { text: "Право на неприкосновенность частной жизни, личную и семейную тайну, защиту своей чести и доброго имени.", category: "Личные права" },
+      { text: "Право на тайну переписки, телефонных переговоров, почтовых, телеграфных иных сообщений.", category: "Личные права" },
+      { text: "Сбор, хранение, использование и распространение информации о частной жизни лица без его согласия не допускаются.", category: "Личные права" },
+      { text: "Жилище неприкосновенно. Никто не вправе проникать в жилище против воли проживающих в нем лиц иначе как в случаях, установленных федеральным законом, или на основании судебного решения.", category: "Личные права" },
+      { text: "Определять и указывать свою национальную принадлежность. Никто не может быть принужден к определению и указанию своей национальной принадлежности.", category: "Личные права" },
+      { text: "Право на пользование родным языком, на свободный выбор языка общения, воспитания, обучения и творчества.", category: "Личные права" },
+      { text: "Право свободно передвигаться, выбирать место пребывания и жительства.", category: "Личные права" },
+      { text: "Свободно выезжать за пределы Российской Федерации.", category: "Личные права" },
+      { text: "Гражданин РФ имеет право беспрепятственно возвращаться в РФ", category: "Личные права" },
+      { text: "Свобода совести, свобода вероисповедания, включая право исповедовать индивидуально или совместно с другими любую религию или не исповедовать никакой, свободно выбирать, иметь и распространять религиозные и иные убеждения и действовать в соответствии с ними.", category: "Личные права" },
+      { text: "Свобода мысли и слова.", category: "Личные права" },
+      { text: "Никто не может быть принужден к выражению своих мнений и убеждений или отказу от них.", category: "Личные права" },
+      { text: "Право свободно искать, получать, передавать, производить и распространять информацию любым законным способом", category: "Политические права" },
+      { text: "Свобода массовой информации", category: "Политические права" },
+      { text: "Право на объединение, включая право создавать профессиональные союзы для защиты своих интересов.", category: "Политические права" },
+      { text: "Свобода деятельности общественных объединений.", category: "Политические права" },
+      { text: "Право собираться мирно без оружия, проводить собрания, митинги и демонстрации, шествия и пикетирование.", category: "Политические права" },
+      { text: "Право участвовать в управлении делами государства как непосредственно, так и через своих представителей.", category: "Политические права" },
+      { text: "Право избирать и быть избранными в органы государственной власти и органы местного самоуправления, а также участвовать в референдуме.", category: "Политические права" },
+      { text: "Граждане Российской Федерации имеют равный доступ к государственной службе.", category: "Политические права" },
+      { text: "Право участвовать в отправлении правосудия.", category: "Политические права" },
+      { text: "Право обращаться лично, а также направлять индивидуальные и коллективные обращения в государственные органы и органы местного самоуправления.", category: "Политические права" },
+      { text: "Право на свободное использование своих способностей и имущества для предпринимательской и иной не запрещенной законом экономической деятельности.", category: "Социально-экономические права" },
+      { text: "Право иметь имущество в собственности, владеть, пользоваться и распоряжаться им как единолично, так и совместно с другими лицами.", category: "Социально-экономические права" },
+      { text: "Право наследования", category: "Социально-экономические права" },
+      { text: "Право иметь в частной собственности землю", category: "Социально-экономические права" },
+      { text: "Право свободно распоряжаться своими способностями к труду, выбирать род деятельности и профессию", category: "Социально-экономические права" },
+      { text: "Право на труд в условиях, отвечающих требованиям безопасности и гигиены, на вознаграждение за труд без какой бы то ни было дискриминации и не ниже установленного федеральным законом минимального размера оплаты труда.", category: "Социально-экономические права" },
+      { text: "Право на защиту от безработицы", category: "Социально-экономические права" },
+      { text: "Право на индивидуальные и коллективные трудовые споры с использованием установленных федеральным законом способов их разрешения, включая право на забастовку.", category: "Социально-экономические права" },
+      { text: "Право на отдых.", category: "Социально-экономические права" },
+      { text: "Право на социальное обеспечение по возрасту, в случае болезни, инвалидности, потери кормильца, для воспитания детей и в иных случаях, установленных законом.", category: "Социально-экономические права" },
+      { text: "Право на жилище", category: "Социально-экономические права" },
+      { text: "Право на охрану здоровья и медицинскую помощь", category: "Социально-экономические права" },
+      { text: "Право на благоприятную окружающую среду, достоверную информацию о ее состоянии и на возмещение ущерба, причиненного его здоровью или имуществу экологическим правонарушением", category: "Социально-экономические права" },
+      { text: "Право на образование.", category: "Социально-экономические права" },
+      { text: "Право на конкурсной основе бесплатно получить высшее образование в государственном или муниципальном образовательном учреждении и на предприятии.", category: "Социально-экономические права" },
+      { text: "Свобода литературного, художественного, научного, технического и других видов творчества, преподавания.", category: "Культурные права" },
+      { text: "Право на участие в культурной жизни и пользование учреждениями культуры", category: "Культурные права" },
+      { text: "Право на доступ к культурным ценностям", category: "Культурные права" },
+      { text: "Соблюдать конституцию и законы РФ", category: "Конституционные обязанности" },
+      { text: "Обеспечивать получение детьми общего образования", category: "Конституционные обязанности" },
+      { text: "Заботиться о сохранении исторического и культурного наследия", category: "Конституционные обязанности" },
+      { text: "Платить налоги", category: "Конституционные обязанности" },
+      { text: "Защищать Отечество", category: "Конституционные обязанности" },
+      { text: "Сохранять природу и окружающую среду", category: "Конституционные обязанности" },
+      { text: "Заботиться о несовершеннолетних детях и нетрудоспособных родителях", category: "Конституционные обязанности" }
+    ];
+
+    const rightsCategories = [
+      "Личные права",
+      "Политические права",
+      "Социально-экономические права",
+      "Культурные права",
+      "Конституционные обязанности"
+    ];
+
+    // --- СОСТОЯНИЕ (STATE) ---
+    let currentMode = null;
+    let categories = [];
+    let pool = [];
+    let currentQuestion = null;
+    let totalTarget = 0;
+    let isFinished = false;
+    let selectedAnswer = null;
+    let isCorrect = null;
+    let isWaiting = false;
+
+    // --- ЛОГИКА (FUNCTIONS) ---
+    
+    function startQuiz(mode) {
+      const sourceData = mode === 'liability' ? liabilityData : rightsData;
+      const sourceCats = mode === 'liability' ? liabilityCategories : rightsCategories;
+      
+      const initialPool = sourceData.map((q, idx) => ({ 
+        ...q, 
+        id: idx, 
+        correctCount: 0 
+      }));
+      
+      categories = sourceCats;
+      pool = initialPool;
+      totalTarget = initialPool.length * 2; 
+      currentMode = mode;
+      isFinished = false;
+      
+      currentQuestion = initialPool[Math.floor(Math.random() * initialPool.length)];
+      
+      selectedAnswer = null;
+      isCorrect = null;
+      isWaiting = false;
+
+      render();
+    }
+
+    function handleAnswerClick(category) {
+      if (isWaiting || !currentQuestion) return; 
+
+      const correct = category === currentQuestion.category;
+
+      selectedAnswer = category;
+      isCorrect = correct;
+      isWaiting = true;
+      render(); // Перерисовываем, чтобы показать цвета кнопок
+
+      setTimeout(() => {
+        const qIndex = pool.findIndex(q => q.id === currentQuestion.id);
+        
+        if (qIndex !== -1) {
+          if (correct) {
+            const newCount = pool[qIndex].correctCount + 1;
+            if (newCount >= 2) {
+              pool.splice(qIndex, 1);
+            } else {
+              pool[qIndex].correctCount = newCount;
+            }
+          } else {
+            pool[qIndex].correctCount = 0;
+          }
+        }
+
+        if (pool.length === 0) {
+          isFinished = true;
+        } else {
+          let available = pool;
+          if (pool.length > 1) {
+            available = pool.filter(q => q.id !== currentQuestion.id);
+          }
+          currentQuestion = available[Math.floor(Math.random() * available.length)];
+        }
+        
+        selectedAnswer = null;
+        isCorrect = null;
+        isWaiting = false;
+        render(); // Перерисовываем следующий вопрос
+      }, 800); 
+    }
+
+    function backToMenu() {
+      currentMode = null;
+      render();
+    }
+
+    function calculateProgress() {
+      if (!pool.length) return totalTarget;
+      const remainingWork = pool.reduce((sum, q) => sum + (2 - q.correctCount), 0);
+      return totalTarget - remainingWork;
+    }
+
+    // --- РЕНДЕРИНГ (UI) ---
+    
+    function renderMenu() {
+      return `
+        <div class="h-[100dvh] w-full bg-slate-50 flex flex-col items-center justify-center p-3 sm:p-6 font-sans text-slate-800 overflow-hidden">
+          <div class="max-w-2xl w-full max-h-full bg-white rounded-2xl shadow-xl p-5 sm:p-8 flex flex-col border border-slate-100">
+            <div class="mb-4 sm:mb-8 text-center shrink-0">
+              <h1 class="text-2xl sm:text-4xl font-bold text-slate-900 mb-2 sm:mb-4">
+                🎓 Тренажер
+              </h1>
+              <p class="text-sm sm:text-lg text-slate-500 mb-2">
+                Режим "До полного усвоения". 
+              </p>
+              <p class="text-xs sm:text-sm text-slate-500 bg-slate-100 py-2 px-3 sm:p-3 rounded-lg inline-block">
+                Вопрос исчезает после <b>двух верных ответов</b>. Ошибка сбрасывает счет!
+              </p>
+            </div>
+
+            <div class="flex-1 flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4 min-h-0">
+              <button 
+                onclick="startQuiz('liability')"
+                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl transition-all duration-300 border border-indigo-100 hover:shadow-lg"
+              >
+                <span class="text-4xl sm:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">⚖️</span>
+                <h2 class="text-lg sm:text-xl font-semibold mb-1">Юр. ответственность</h2>
+                <p class="text-xs sm:text-sm opacity-80 font-medium">Все ${liabilityData.length} видов</p>
+              </button>
+
+              <button 
+                onclick="startQuiz('rights')"
+                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-xl transition-all duration-300 border border-emerald-100 hover:shadow-lg"
+              >
+                <span class="text-4xl sm:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">📜</span>
+                <h2 class="text-lg sm:text-xl font-semibold mb-1 text-center">Права и обязанности</h2>
+                <p class="text-xs sm:text-sm opacity-80 font-medium">Все ${rightsData.length} пунктов</p>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCertificate() {
+      const themeName = currentMode === 'liability' ? 'Виды юридической ответственности' : 'Конституционные права и обязанности';
+      const totalQuestions = currentMode === 'liability' ? liabilityData.length : rightsData.length;
+      const date = new Date().toLocaleDateString('ru-RU');
+
+      return `
+        <div class="h-[100dvh] w-full bg-slate-100 flex flex-col items-center justify-center p-3 sm:p-6 font-sans text-slate-800 overflow-hidden">
+          <div class="max-w-2xl w-full h-full max-h-[800px] flex flex-col justify-center min-h-0">
+            
+            <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-12 mb-4 sm:mb-6 border-4 sm:border-8 border-double border-indigo-100 relative overflow-hidden text-center shrink-0">
+              
+              <div class="absolute top-2 right-2 w-16 h-16 sm:top-6 sm:right-6 sm:w-32 sm:h-32 border-4 sm:border-8 border-emerald-500 rounded-full flex items-center justify-center text-emerald-500 font-extrabold text-xs sm:text-2xl -rotate-12 opacity-80 pointer-events-none">
+                СДАНО
+              </div>
+
+              <div class="text-6xl sm:text-8xl mb-3 sm:mb-6 flex justify-center drop-shadow-md">🏆</div>
+              
+              <h1 class="text-2xl sm:text-5xl font-black text-indigo-900 mb-2 sm:mb-6 uppercase tracking-wider">
+                Сертификат
+              </h1>
+              
+              <p class="text-sm sm:text-xl text-slate-600 mb-1 sm:mb-2">Успешное прохождение темы:</p>
+              <h2 class="text-lg sm:text-3xl font-bold text-indigo-700 mb-4 sm:mb-8 pb-3 sm:pb-6 border-b-2 border-indigo-50">
+                «${themeName}»
+              </h2>
+              
+              <div class="bg-slate-50 rounded-xl p-3 sm:p-6 mb-4 sm:mb-8 border border-slate-100">
+                <p class="text-sm sm:text-lg font-medium text-slate-800 mb-1 sm:mb-2">Отличная работа!</p>
+                <p class="text-xs sm:text-base text-slate-600">Все карточки блока закреплены в памяти. Каждый вопрос был отвечен верно <span class="font-bold text-indigo-600">2 раза</span>.</p>
+              </div>
+
+              <div class="flex justify-between items-end mt-4 sm:mt-10">
+                <div class="text-left">
+                  <p class="text-[10px] sm:text-sm text-slate-400 font-medium uppercase tracking-widest mb-1">Дата:</p>
+                  <p class="text-sm sm:text-xl font-bold text-slate-700">${date}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-[10px] sm:text-sm text-slate-400 font-medium uppercase tracking-widest mb-1">Всего вопросов:</p>
+                  <p class="text-sm sm:text-xl font-bold text-slate-700">${totalQuestions}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center shrink-0">
+              <button 
+                onclick="startQuiz('${currentMode}')"
+                class="py-2.5 sm:py-3 px-6 sm:px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-sm sm:text-base font-semibold rounded-xl shadow-md transition-all active:scale-[0.98]"
+              >
+                Пройти заново
+              </button>
+              <button 
+                onclick="backToMenu()"
+                class="py-2.5 sm:py-3 px-6 sm:px-8 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm sm:text-base font-semibold rounded-xl shadow-sm transition-all active:scale-[0.98]"
+              >
+                Выбрать другую тему
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderQuiz() {
+      const currentScore = calculateProgress();
+      const progressPercentage = totalTarget > 0 ? (currentScore / totalTarget) * 100 : 0;
+
+      const circle1Class = currentQuestion.correctCount >= 1 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200';
+      const circle2Class = currentQuestion.correctCount >= 2 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200';
+
+      const buttonsHtml = categories.map(cat => {
+        let btnClasses = "py-2.5 sm:py-4 px-3 sm:px-6 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base leading-tight transition-all duration-200 border-2 flex items-center justify-center text-center ";
+        
+        if (selectedAnswer !== null) {
+          if (cat === currentQuestion.category) {
+            btnClasses += "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-[0_0_15px_rgba(16,185,129,0.3)]";
+          } else if (cat === selectedAnswer && !isCorrect) {
+            btnClasses += "bg-red-50 border-red-500 text-red-700";
+          } else {
+            btnClasses += "bg-white border-slate-200 text-slate-400 opacity-50";
+          }
+        } else {
+          btnClasses += "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 active:scale-[0.98] cursor-pointer";
+        }
+
+        // Экранируем одинарные кавычки, если они есть (в наших категориях их нет, но на всякий случай)
+        const safeCat = cat.replace(/'/g, "\\'");
+        const disabled = isWaiting ? "disabled" : "";
+
+        return `
+          <button
+            onclick="handleAnswerClick('${safeCat}')"
+            ${disabled}
+            class="${btnClasses}"
+          >
+            ${cat}
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <div class="h-[100dvh] w-full bg-slate-50 flex flex-col items-center p-2 sm:p-6 font-sans text-slate-800 overflow-hidden">
+          <div class="max-w-3xl w-full h-full flex flex-col min-h-0">
+            
+            <div class="flex justify-between items-center mb-2 sm:mb-4 shrink-0 mt-1">
+              <button 
+                onclick="backToMenu()"
+                class="text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1 font-medium bg-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-slate-200 shadow-sm text-xs sm:text-sm active:scale-[0.98]"
+              >
+                ← Прервать
+              </button>
+              <div class="text-right">
+                <p class="text-xs sm:text-sm text-slate-500 font-medium">В пуле: <span class="text-indigo-600 font-bold text-sm sm:text-base">${pool.length}</span></p>
+              </div>
+            </div>
+
+            <div class="mb-3 sm:mb-6 shrink-0">
+              <div class="flex justify-between text-[10px] sm:text-xs text-slate-400 font-bold mb-1 sm:mb-2 uppercase tracking-wider">
+                <span>Начало</span>
+                <span>${Math.round(progressPercentage)}%</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-2 sm:h-3 overflow-hidden shadow-inner relative">
+                <div 
+                  class="bg-indigo-500 h-full rounded-full transition-all duration-500 ease-out absolute left-0 top-0" 
+                  style="width: ${progressPercentage}%"
+                >
+                  <div class="absolute inset-0 bg-white/20 w-full h-full" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl sm:rounded-2xl shadow-md p-4 sm:p-8 mb-2 sm:mb-6 border border-slate-100 relative flex-1 flex flex-col min-h-0">
+              <div class="absolute top-2 sm:top-4 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2">
+                <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${circle1Class}"></div>
+                <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${circle2Class}"></div>
+              </div>
+
+              <div class="flex-1 flex items-center justify-center mt-4 sm:mt-6 overflow-y-auto">
+                <h2 class="text-base sm:text-2xl md:text-3xl font-bold text-slate-800 leading-snug text-center">
+                  «${currentQuestion.text}»
+                </h2>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 shrink-0 pb-2 sm:pb-0">
+              ${buttonsHtml}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Главная функция рендеринга
+    function render() {
+      const app = document.getElementById('app');
+      
+      if (!currentMode) {
+        app.innerHTML = renderMenu();
+      } else if (isFinished) {
+        app.innerHTML = renderCertificate();
+      } else {
+        app.innerHTML = renderQuiz();
+      }
+    }
+
+    // Инициализация при загрузке
+    document.addEventListener("DOMContentLoaded", render);
+
+  </script>
+</body>
+</html>
