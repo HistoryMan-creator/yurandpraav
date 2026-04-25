@@ -119,13 +119,30 @@
     let pool = [];
     let currentQuestion = null;
     let totalTarget = 0;
+    
+    // Состояния окончания игры
     let isFinished = false;
+    let isTimeUp = false;
+    let showVideo = false; // Флаг для отображения видео после 3-х секунд
+
+    // Таймер
+    let timeLimit = 0;
+    let timeRemaining = 0;
+    let timerInterval = null;
+    let videoTimeout = null;
+    
     let selectedAnswer = null;
     let isCorrect = null;
     let isWaiting = false;
 
     // --- ЛОГИКА (FUNCTIONS) ---
     
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
     function startQuiz(mode) {
       const sourceData = mode === 'liability' ? liabilityData : rightsData;
       const sourceCats = mode === 'liability' ? liabilityCategories : rightsCategories;
@@ -140,7 +157,28 @@
       pool = initialPool;
       totalTarget = initialPool.length * 2; 
       currentMode = mode;
+      
+      // Сброс флагов завершения
       isFinished = false;
+      isTimeUp = false;
+      showVideo = false;
+      
+      // Настройка таймера: Юр. ответственность = 6 мин (360с), Права = 10 мин (600с)
+      timeLimit = mode === 'liability' ? 360 : 600;
+      timeRemaining = timeLimit;
+
+      if (timerInterval) clearInterval(timerInterval);
+      if (videoTimeout) clearTimeout(videoTimeout);
+      
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        updateTimerUI();
+        
+        if (timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          finishQuiz(false); // Завершаем по тайм-ауту (Провал)
+        }
+      }, 1000);
       
       currentQuestion = initialPool[Math.floor(Math.random() * initialPool.length)];
       
@@ -151,15 +189,41 @@
       render();
     }
 
+    function updateTimerUI() {
+      const timerSpan = document.getElementById('quiz-timer');
+      if (timerSpan) {
+        timerSpan.innerText = formatTime(timeRemaining);
+        if (timeRemaining <= 60) {
+          timerSpan.classList.add('text-red-500', 'animate-pulse');
+          timerSpan.classList.remove('text-slate-600', 'text-slate-800');
+        }
+      }
+    }
+
+    function finishQuiz(success) {
+      if (timerInterval) clearInterval(timerInterval);
+      
+      isFinished = true;
+      isTimeUp = !success;
+      
+      render(); // Показываем финальную картинку-сертификат
+
+      // Через 3 секунды включаем видео
+      videoTimeout = setTimeout(() => {
+        showVideo = true;
+        render(); // Обновляем экран, чтобы показать видео
+      }, 3000);
+    }
+
     function handleAnswerClick(category) {
-      if (isWaiting || !currentQuestion) return; 
+      if (isWaiting || !currentQuestion || isFinished) return; 
 
       const correct = category === currentQuestion.category;
 
       selectedAnswer = category;
       isCorrect = correct;
       isWaiting = true;
-      render(); // Перерисовываем, чтобы показать цвета кнопок
+      render(); 
 
       setTimeout(() => {
         const qIndex = pool.findIndex(q => q.id === currentQuestion.id);
@@ -178,24 +242,26 @@
         }
 
         if (pool.length === 0) {
-          isFinished = true;
+          finishQuiz(true); // Завершаем успешно
         } else {
           let available = pool;
           if (pool.length > 1) {
             available = pool.filter(q => q.id !== currentQuestion.id);
           }
           currentQuestion = available[Math.floor(Math.random() * available.length)];
+          
+          selectedAnswer = null;
+          isCorrect = null;
+          isWaiting = false;
+          render(); 
         }
-        
-        selectedAnswer = null;
-        isCorrect = null;
-        isWaiting = false;
-        render(); // Перерисовываем следующий вопрос
       }, 800); 
     }
 
     function backToMenu() {
       currentMode = null;
+      if (timerInterval) clearInterval(timerInterval);
+      if (videoTimeout) clearTimeout(videoTimeout);
       render();
     }
 
@@ -216,18 +282,19 @@
                 🎓 Тренажер
               </h1>
               <p class="text-sm sm:text-lg text-slate-500 mb-2">
-                Режим "До полного усвоения". 
+                Режим "На время и до полного усвоения". 
               </p>
               <p class="text-xs sm:text-sm text-slate-500 bg-slate-100 py-2 px-3 sm:p-3 rounded-lg inline-block">
-                Вопрос исчезает после <b>двух верных ответов</b>. Ошибка сбрасывает счет!
+                Нужно <b>2 верных ответа</b> для исчезновения карточки. Ошибка сбрасывает счет! Следите за таймером!
               </p>
             </div>
 
             <div class="flex-1 flex flex-col sm:grid sm:grid-cols-2 gap-3 sm:gap-4 min-h-0">
               <button 
                 onclick="startQuiz('liability')"
-                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl transition-all duration-300 border border-indigo-100 hover:shadow-lg"
+                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-indigo-50 hover:bg-indigo-600 hover:text-white rounded-xl transition-all duration-300 border border-indigo-100 hover:shadow-lg relative overflow-hidden"
               >
+                <div class="absolute top-2 right-3 text-xs font-bold text-indigo-300 group-hover:text-indigo-200">⏱ 6 мин</div>
                 <span class="text-4xl sm:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">⚖️</span>
                 <h2 class="text-lg sm:text-xl font-semibold mb-1">Юр. ответственность</h2>
                 <p class="text-xs sm:text-sm opacity-80 font-medium">Все ${liabilityData.length} видов</p>
@@ -235,8 +302,9 @@
 
               <button 
                 onclick="startQuiz('rights')"
-                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-xl transition-all duration-300 border border-emerald-100 hover:shadow-lg"
+                class="flex-1 group flex flex-col items-center justify-center p-4 sm:p-6 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-xl transition-all duration-300 border border-emerald-100 hover:shadow-lg relative overflow-hidden"
               >
+                <div class="absolute top-2 right-3 text-xs font-bold text-emerald-300 group-hover:text-emerald-200">⏱ 10 мин</div>
                 <span class="text-4xl sm:text-5xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform">📜</span>
                 <h2 class="text-lg sm:text-xl font-semibold mb-1 text-center">Права и обязанности</h2>
                 <p class="text-xs sm:text-sm opacity-80 font-medium">Все ${rightsData.length} пунктов</p>
@@ -248,37 +316,70 @@
     }
 
     function renderCertificate() {
+      // Если прошло 3 секунды, показываем плеер с видео
+      if (showVideo) {
+        const videoSrc = isTimeUp ? '1.mp4' : '2.mp4';
+        return `
+          <div class="h-[100dvh] w-full bg-black flex flex-col items-center justify-center relative overflow-hidden">
+            <button 
+              onclick="backToMenu()"
+              class="absolute top-4 left-4 z-50 bg-white/20 hover:bg-white/40 text-white px-4 py-2 rounded-lg backdrop-blur-sm transition-colors text-sm font-medium"
+            >
+              ← В главное меню
+            </button>
+            <video 
+              src="${videoSrc}" 
+              autoplay 
+              controls 
+              class="w-full h-full object-contain">
+            </video>
+          </div>
+        `;
+      }
+
+      // Иначе показываем красивый скриншот-сертификат
       const themeName = currentMode === 'liability' ? 'Виды юридической ответственности' : 'Конституционные права и обязанности';
       const totalQuestions = currentMode === 'liability' ? liabilityData.length : rightsData.length;
       const date = new Date().toLocaleDateString('ru-RU');
+      const timeSpent = timeLimit - timeRemaining;
+      
+      const stampText = isTimeUp ? 'НЕ СДАНО' : 'СДАНО';
+      const stampClass = isTimeUp ? 'border-red-500 text-red-500' : 'border-emerald-500 text-emerald-500';
+      const borderClass = isTimeUp ? 'border-red-100' : 'border-indigo-100';
+      const titleColor = isTimeUp ? 'text-red-900' : 'text-indigo-900';
+      const lineClass = isTimeUp ? 'border-red-50' : 'border-indigo-50';
 
       return `
         <div class="h-[100dvh] w-full bg-slate-100 flex flex-col items-center justify-center p-3 sm:p-6 font-sans text-slate-800 overflow-hidden">
           <div class="max-w-2xl w-full h-full max-h-[800px] flex flex-col justify-center min-h-0">
             
-            <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-12 mb-4 sm:mb-6 border-4 sm:border-8 border-double border-indigo-100 relative overflow-hidden text-center shrink-0">
+            <div class="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-12 mb-4 sm:mb-6 border-4 sm:border-8 border-double ${borderClass} relative overflow-hidden text-center shrink-0 flex flex-col">
               
-              <div class="absolute top-2 right-2 w-16 h-16 sm:top-6 sm:right-6 sm:w-32 sm:h-32 border-4 sm:border-8 border-emerald-500 rounded-full flex items-center justify-center text-emerald-500 font-extrabold text-xs sm:text-2xl -rotate-12 opacity-80 pointer-events-none">
-                СДАНО
+              <div class="absolute top-2 right-2 w-20 h-20 sm:top-6 sm:right-6 sm:w-32 sm:h-32 border-4 sm:border-8 ${stampClass} rounded-full flex items-center justify-center font-extrabold text-[10px] sm:text-2xl -rotate-12 opacity-80 pointer-events-none">
+                ${stampText}
               </div>
-
-              <div class="text-6xl sm:text-8xl mb-3 sm:mb-6 flex justify-center drop-shadow-md">🏆</div>
               
-              <h1 class="text-2xl sm:text-5xl font-black text-indigo-900 mb-2 sm:mb-6 uppercase tracking-wider">
+              <div class="text-6xl sm:text-8xl mb-3 sm:mb-6 flex justify-center drop-shadow-md">${isTimeUp ? '⏳' : '🏆'}</div>
+
+              <h1 class="text-2xl sm:text-5xl font-black ${titleColor} mb-1 sm:mb-3 uppercase tracking-wider">
                 Сертификат
               </h1>
               
-              <p class="text-sm sm:text-xl text-slate-600 mb-1 sm:mb-2">Успешное прохождение темы:</p>
-              <h2 class="text-lg sm:text-3xl font-bold text-indigo-700 mb-4 sm:mb-8 pb-3 sm:pb-6 border-b-2 border-indigo-50">
+              <h2 class="text-base sm:text-2xl font-bold text-slate-700 mb-3 sm:mb-6 pb-2 sm:pb-4 border-b-2 ${lineClass}">
                 «${themeName}»
               </h2>
-              
-              <div class="bg-slate-50 rounded-xl p-3 sm:p-6 mb-4 sm:mb-8 border border-slate-100">
-                <p class="text-sm sm:text-lg font-medium text-slate-800 mb-1 sm:mb-2">Отличная работа!</p>
-                <p class="text-xs sm:text-base text-slate-600">Все карточки блока закреплены в памяти. Каждый вопрос был отвечен верно <span class="font-bold text-indigo-600">2 раза</span>.</p>
-              </div>
 
-              <div class="flex justify-between items-end mt-4 sm:mt-10">
+              <div class="bg-slate-50 rounded-xl p-3 sm:p-6 mb-4 sm:mb-6 flex-1 flex flex-col justify-center">
+                ${isTimeUp 
+                  ? `<p class="text-sm sm:text-lg font-bold text-red-600 mb-1 sm:mb-2">Время вышло!</p>
+                     <p class="text-xs sm:text-base text-slate-600">Вы не уложились в отведенный лимит (${formatTime(timeLimit)}). В пуле осталось нерешенных вопросов: <b>${pool.length}</b>.</p>`
+                  : `<p class="text-sm sm:text-lg font-bold text-emerald-600 mb-1 sm:mb-2">Отличная работа!</p>
+                     <p class="text-xs sm:text-base text-slate-600">Все карточки закреплены в памяти (по 2 верных ответа).</p>
+                     <p class="mt-2 text-sm sm:text-lg font-medium text-slate-800">Время прохождения: <span class="font-bold text-indigo-600">${formatTime(timeSpent)}</span></p>`
+                }
+              </div>
+              
+              <div class="flex justify-between items-end mt-auto">
                 <div class="text-left">
                   <p class="text-[10px] sm:text-sm text-slate-400 font-medium uppercase tracking-widest mb-1">Дата:</p>
                   <p class="text-sm sm:text-xl font-bold text-slate-700">${date}</p>
@@ -290,20 +391,9 @@
               </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center shrink-0">
-              <button 
-                onclick="startQuiz('${currentMode}')"
-                class="py-2.5 sm:py-3 px-6 sm:px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-sm sm:text-base font-semibold rounded-xl shadow-md transition-all active:scale-[0.98]"
-              >
-                Пройти заново
-              </button>
-              <button 
-                onclick="backToMenu()"
-                class="py-2.5 sm:py-3 px-6 sm:px-8 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm sm:text-base font-semibold rounded-xl shadow-sm transition-all active:scale-[0.98]"
-              >
-                Выбрать другую тему
-              </button>
-            </div>
+            <!-- Подсказка, что скоро будет видео -->
+            <p class="text-center text-slate-400 text-xs sm:text-sm animate-pulse">Загрузка сюрприза...</p>
+
           </div>
         </div>
       `;
@@ -315,6 +405,8 @@
 
       const circle1Class = currentQuestion.correctCount >= 1 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200';
       const circle2Class = currentQuestion.correctCount >= 2 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200';
+      
+      const timerClass = timeRemaining <= 60 ? 'text-red-500 animate-pulse' : 'text-slate-800';
 
       const buttonsHtml = categories.map(cat => {
         let btnClasses = "py-2.5 sm:py-4 px-3 sm:px-6 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base leading-tight transition-all duration-200 border-2 flex items-center justify-center text-center ";
@@ -331,7 +423,6 @@
           btnClasses += "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 active:scale-[0.98] cursor-pointer";
         }
 
-        // Экранируем одинарные кавычки, если они есть (в наших категориях их нет, но на всякий случай)
         const safeCat = cat.replace(/'/g, "\\'");
         const disabled = isWaiting ? "disabled" : "";
 
@@ -357,6 +448,13 @@
               >
                 ← Прервать
               </button>
+              
+              <!-- НОВЫЙ ТАЙМЕР -->
+              <div class="flex flex-col items-center justify-center px-4">
+                <span class="text-[10px] sm:text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">Осталось</span>
+                <span id="quiz-timer" class="font-mono text-base sm:text-xl font-bold ${timerClass}">${formatTime(timeRemaining)}</span>
+              </div>
+
               <div class="text-right">
                 <p class="text-xs sm:text-sm text-slate-500 font-medium">В пуле: <span class="text-indigo-600 font-bold text-sm sm:text-base">${pool.length}</span></p>
               </div>
@@ -364,7 +462,7 @@
 
             <div class="mb-3 sm:mb-6 shrink-0">
               <div class="flex justify-between text-[10px] sm:text-xs text-slate-400 font-bold mb-1 sm:mb-2 uppercase tracking-wider">
-                <span>Начало</span>
+                <span>Прогресс</span>
                 <span>${Math.round(progressPercentage)}%</span>
               </div>
               <div class="w-full bg-slate-200 rounded-full h-2 sm:h-3 overflow-hidden shadow-inner relative">
@@ -398,7 +496,6 @@
       `;
     }
 
-    // Главная функция рендеринга
     function render() {
       const app = document.getElementById('app');
       
@@ -411,7 +508,6 @@
       }
     }
 
-    // Инициализация при загрузке
     document.addEventListener("DOMContentLoaded", render);
 
   </script>
